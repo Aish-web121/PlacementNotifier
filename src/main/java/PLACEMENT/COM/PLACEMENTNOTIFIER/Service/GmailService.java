@@ -49,7 +49,7 @@ public class GmailService {
             try {
                 log.info("Fetching emails from: {}", sender);
 
-                String query = "from:" + sender + " newer_than:1d";
+                String query = "from:" + sender + " newer_than:2d";
 
                 ListMessagesResponse response = gmailService
                         .users()
