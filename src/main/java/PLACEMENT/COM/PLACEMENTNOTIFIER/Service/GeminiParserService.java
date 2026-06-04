@@ -42,7 +42,6 @@ public class GeminiParserService {
         String prompt = buildPrompt(subject, body);
 
         try {
-            // Build Gemini request body
             String requestBody = gson.toJson(Map.of(
                     "contents", new Object[]{
                             Map.of("parts", new Object[]{
@@ -50,14 +49,13 @@ public class GeminiParserService {
                             })
                     },
                     "generationConfig", Map.of(
-                            "temperature", 0.1,      // low = consistent output
-                            "maxOutputTokens", 200   // we only need small JSON
+                            "temperature", 0.1,
+                            "maxOutputTokens", 200
                     )
             ));
 
             String url = String.format(GEMINI_URL, model, apiKey);
 
-            // Call Gemini API
             String response = webClient
                     .post()
                     .uri(url)
@@ -71,8 +69,6 @@ public class GeminiParserService {
 
         } catch (Exception e) {
             log.error("Gemini API call failed: {}", e.getMessage());
-            // If Gemini fails → fallback: treat as relevant
-            // Better to send extra notification than miss one
             return GeminiResult.fallback(subject);
         }
     }
@@ -82,31 +78,63 @@ public class GeminiParserService {
     // ─────────────────────────────────────────────
     private String buildPrompt(String subject, String body) {
 
-        // Truncate body to save tokens
-        String truncatedBody = body != null && body.length() > 500
-                ? body.substring(0, 500)
+        String truncatedBody = body != null && body.length() > 600
+                ? body.substring(0, 600)
                 : body;
 
         return """
-                You are a placement email filter for a college student in India.
+                You are a placement email filter for engineering college students in India.
                 
-                Analyze this email and determine if it is a GENERAL placement,
-                job, internship, or hackathon announcement meant for ALL students.
+                You will receive emails forwarded by the college placement cell.
+                Your job is to decide if this email announces an opportunity for students.
                 
-                RELEVANT emails (process these):
-                - Job openings from companies
-                - Internship opportunities
-                - Hackathon announcements
-                - Campus recruitment drives
-                - General placement notices for all students
+                ─── ALWAYS RELEVANT (relevant: true) ───
+                - Job openings or campus placement drives by any company
+                - Internship opportunities open to students
+                - Hackathons or coding competitions open to students
+                - Case competitions or product challenges open to students
+                - RecruitSage job notification emails ("New Job Opportunity", "Dear Student")
+                - Any email announcing an opportunity for the student BATCH (not one person)
                 
-                NOT RELEVANT emails (ignore these):
-                - Personal replies to specific students ("Dear Avani...")
-                - Logistics/travel updates ("travel back on 27th July")
-                - Spam folder reminders
-                - General college notices unrelated to jobs
-                - Reply chains between students and placement cell
-                - Emails addressed to ONE specific person by name
+                ─── NEVER RELEVANT (relevant: false) ───
+                ONLY mark false if the email is clearly one of these:
+                1. A reply from/to a SINGLE specific named student
+                   (e.g. "Dear Avani", "Dear Rahul" — a real person's first name, not "Dear Student")
+                2. A student replying to the placement cell
+                3. A conversation thread where a student is writing back
+                4. Pure logistics with zero opportunity (spam folder reminder, travel update)
+                
+                ─── COMPANY EXTRACTION RULES ───
+                - The SENDER is always the college placement cell or RecruitSage — NEVER use sender as company
+                - For RecruitSage emails: extract the company mentioned inside (e.g. "Honeywell")
+                - For placement cell emails: extract the recruiting company from the body (e.g. "Goldman Sachs")
+                - For hackathons: use the organizing company (e.g. "Goldman Sachs", "Tata Technologies")
+                - If no company found: use "Unknown"
+                
+                ─── ROLE EXTRACTION RULES ───
+                - For jobs/internships: extract the exact job title (e.g. "Data Scientist", "Software Engineer Intern")
+                - For hackathons/competitions: use "Hackathon" or "Competition"
+                - NEVER copy a full sentence from the email as the role
+                - If unclear: use "Not specified"
+                
+                ─── TEST CASES TO LEARN FROM ───
+                
+                CASE 1 — RecruitSage job email:
+                Subject: New Job Opportunity - Data Scientist at Honeywell
+                Body: Dear Student, A new job opportunity has been posted... Data Scientist, Company: Honeywell
+                Expected: relevant=true, company="Honeywell", role="Data Scientist"
+                
+                CASE 2 — Placement cell hackathon:
+                Subject: Goldman Sachs India Hackathon 2026 - Launch
+                Body: We are pleased to announce the 2026 Goldman Sachs India Hackathon (GSIH)...
+                Expected: relevant=true, company="Goldman Sachs", role="Hackathon"
+                
+                CASE 3 — Student reply (NOT relevant):
+                Subject: Re: Goldman Sachs India Hackathon 2026 - Launch
+                Body: Dear AVANI, Ensure that you have checked your SPAM folder. Best, Placement Team. On Wed... AVANI SINGH wrote: Dear recruitment team...
+                Expected: relevant=false
+                
+                ─── NOW ANALYZE THIS EMAIL ───
                 
                 Email Subject: %s
                 Email Body: %s
@@ -115,7 +143,7 @@ public class GeminiParserService {
                 {
                   "relevant": true or false,
                   "company": "company name or Unknown",
-                  "role": "job role or Not specified",
+                  "role": "job title or Hackathon or Competition or Not specified",
                   "deadline": "deadline date or null"
                 }
                 """.formatted(subject, truncatedBody);
@@ -126,7 +154,6 @@ public class GeminiParserService {
     // ─────────────────────────────────────────────
     private GeminiResult parseGeminiResponse(String response) {
         try {
-            // Extract text from Gemini response structure
             JsonObject root = JsonParser.parseString(response)
                     .getAsJsonObject();
 
@@ -138,8 +165,6 @@ public class GeminiParserService {
                     .get(0).getAsJsonObject()
                     .get("text").getAsString();
 
-            // Clean up response
-            // Sometimes Gemini adds ```json ``` around it
             text = text.trim()
                     .replace("```json", "")
                     .replace("```", "")
@@ -147,7 +172,6 @@ public class GeminiParserService {
 
             log.debug("Gemini raw response: {}", text);
 
-            // Parse the JSON Gemini returned
             JsonObject result = JsonParser.parseString(text)
                     .getAsJsonObject();
 
@@ -158,10 +182,8 @@ public class GeminiParserService {
                 return null;
             }
 
-            String company = getStringOrDefault(
-                    result, "company", "Unknown");
-            String role = getStringOrDefault(
-                    result, "role", "Not specified");
+            String company  = getStringOrDefault(result, "company",  "Unknown");
+            String role     = getStringOrDefault(result, "role",     "Not specified");
             String deadline = getStringOrNull(result, "deadline");
 
             log.info("Gemini extracted → Company: {} | Role: {} | Deadline: {}",
@@ -171,14 +193,11 @@ public class GeminiParserService {
 
         } catch (Exception e) {
             log.error("Failed to parse Gemini response: {}", e.getMessage());
-            // fallback on parse error
             return GeminiResult.fallback("Unknown");
         }
     }
 
-    private String getStringOrDefault(JsonObject obj,
-                                      String key,
-                                      String defaultVal) {
+    private String getStringOrDefault(JsonObject obj, String key, String defaultVal) {
         try {
             if (obj.has(key) && !obj.get(key).isJsonNull()) {
                 String val = obj.get(key).getAsString().trim();
@@ -200,24 +219,18 @@ public class GeminiParserService {
 
     // ─────────────────────────────────────────────
     // RESULT CLASS
-    // Holds what Gemini extracted
-    // null = email not relevant, skip it
     // ─────────────────────────────────────────────
     public static class GeminiResult {
         public final String company;
         public final String role;
         public final String deadline;
 
-        public GeminiResult(String company,
-                            String role,
-                            String deadline) {
-            this.company = company;
-            this.role = role;
+        public GeminiResult(String company, String role, String deadline) {
+            this.company  = company;
+            this.role     = role;
             this.deadline = deadline;
         }
 
-        // Used when Gemini fails
-        // Better to notify than miss
         public static GeminiResult fallback(String subject) {
             return new GeminiResult("Unknown", "Not specified", null);
         }
