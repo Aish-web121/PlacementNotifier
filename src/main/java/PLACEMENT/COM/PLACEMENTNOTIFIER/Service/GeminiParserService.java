@@ -10,6 +10,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
@@ -17,26 +20,27 @@ public class GeminiParserService {
 
     private final WebClient webClient;
     private final Gson gson;
-
-    @Value("${gemini.api-key}")
-    private String apiKey;
-
-    @Value("${gemini.model}")
-    private String model;
+    private final String apiKey;
+    private final String model;
 
     private static final String GEMINI_URL =
             "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
 
-    // Colleges/intermediaries that are NEVER the hiring company
     private static final String[] NEVER_COMPANY = {
             "thapar", "tiet", "placements thapar", "placement cell",
             "recruitsage", "naukri", "linkedin", "internshala",
             "unstop", "dare2compete", "collegedunia", "shiksha"
     };
 
-    public GeminiParserService(WebClient webClient) {
+    // ── FIX: @Value moved into constructor — prevents Lookup method resolution failed ──
+    public GeminiParserService(
+            WebClient webClient,
+            @Value("${gemini.api-key}") String apiKey,
+            @Value("${gemini.model}") String model) {
         this.webClient = webClient;
-        this.gson = new Gson();
+        this.apiKey    = apiKey;
+        this.model     = model;
+        this.gson      = new Gson();
     }
 
     // ─────────────────────────────────────────────
@@ -46,7 +50,6 @@ public class GeminiParserService {
     // ─────────────────────────────────────────────
     public GeminiResult analyzeEmail(String subject, String body) {
 
-        // ── PRE-FILTER (before wasting a Gemini API call) ──
         if (shouldSkip(subject, body)) {
             return null;
         }
@@ -81,15 +84,12 @@ public class GeminiParserService {
 
         } catch (Exception e) {
             log.error("Gemini API call failed: {}", e.getMessage());
-            // Fallback: treat as relevant so we never miss a real opportunity
             return GeminiResult.fallback();
         }
     }
 
     // ─────────────────────────────────────────────
     // PRE-FILTER
-    // Catches obvious junk BEFORE calling Gemini
-    // Saves API quota + faster response
     // ─────────────────────────────────────────────
     private boolean shouldSkip(String subject, String body) {
 
@@ -99,22 +99,19 @@ public class GeminiParserService {
         String subjectLower = subject.toLowerCase().trim();
         String bodyLower    = body.toLowerCase().trim();
 
-        // 1. Reply emails — almost always a student replying to placement cell
+        // 1. Reply emails
         if (subjectLower.startsWith("re:") || subjectLower.startsWith("re :")) {
             log.info("PRE-FILTER: Skipping reply email → {}", subject);
             return true;
         }
 
         // 2. Email addressed to a specific named student
-        // "Dear Avani" / "Dear Rahul" → skip
-        // "Dear Student" / "Dear All" / "Dear Candidates" → allow
-        java.util.regex.Pattern dearPattern = java.util.regex.Pattern
-                .compile("dear\\s+([a-z]+)[,\\s]",
-                        java.util.regex.Pattern.CASE_INSENSITIVE);
-        java.util.regex.Matcher matcher = dearPattern.matcher(bodyLower);
+        Pattern dearPattern = Pattern.compile(
+                "dear\\s+([a-z]+)[,\\s]", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = dearPattern.matcher(bodyLower);
         if (matcher.find()) {
             String name = matcher.group(1).toLowerCase();
-            java.util.Set<String> genericGreetings = java.util.Set.of(
+            Set<String> genericGreetings = Set.of(
                     "student", "students", "all", "team", "sir",
                     "madam", "faculty", "members", "candidate", "candidates",
                     "applicant", "applicants", "participant", "participants",
@@ -126,24 +123,24 @@ public class GeminiParserService {
             }
         }
 
-        // 3. Spam/logistics reminders with zero opportunity content
+        // 3. Spam reminders with no opportunity content
         if ((bodyLower.contains("check your spam") || bodyLower.contains("check you spam"))
-                && !bodyLower.contains("apply") && !bodyLower.contains("opening")
-                && !bodyLower.contains("opportunity") && !bodyLower.contains("internship")) {
+                && !bodyLower.contains("apply")
+                && !bodyLower.contains("opening")
+                && !bodyLower.contains("opportunity")
+                && !bodyLower.contains("internship")) {
             log.info("PRE-FILTER: Skipping spam reminder email");
             return true;
         }
 
-        return false; // passes pre-filter → send to Gemini
+        return false;
     }
 
     // ─────────────────────────────────────────────
     // BUILD PROMPT
-    // Few-shot examples teach Gemini your exact email formats
     // ─────────────────────────────────────────────
     private String buildPrompt(String subject, String body) {
 
-        // Use up to 1500 chars of body so company name is never cut off
         String truncatedBody = body != null && body.length() > 1500
                 ? body.substring(0, 1500)
                 : body;
@@ -257,7 +254,6 @@ public class GeminiParserService {
                     .get(0).getAsJsonObject()
                     .get("text").getAsString();
 
-            // Clean markdown fences if Gemini adds them
             text = text.trim()
                     .replace("```json", "")
                     .replace("```", "")
@@ -278,8 +274,6 @@ public class GeminiParserService {
             String role     = getStringOrDefault(result, "role",     "Not specified");
             String deadline = getStringOrNull(result, "deadline");
 
-            // Final safety check — if Gemini still returned a forbidden company name
-            // (shouldn't happen with good prompt but just in case)
             for (String forbidden : NEVER_COMPANY) {
                 if (company.toLowerCase().contains(forbidden)) {
                     log.warn("Gemini returned forbidden company '{}' → resetting to Unknown", company);
@@ -340,8 +334,6 @@ public class GeminiParserService {
             this.deadline = deadline;
         }
 
-        // Used when Gemini API itself fails
-        // Better to notify than miss a real opportunity
         public static GeminiResult fallback() {
             return new GeminiResult("Unknown", "Not specified", null);
         }
