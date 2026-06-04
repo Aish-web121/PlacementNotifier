@@ -3,50 +3,41 @@
 		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.2.5</version>
 		<relativePath/>
 	</parent>
-
 	<groupId>com.placement</groupId>
 	<artifactId>notifier</artifactId>
 	<version>1.0.0</version>
 	<name>placement-notifier</name>
-
 	<properties>
 		<java.version>17</java.version>
 	</properties>
-
 	<dependencies>
-
 		<!-- Spring Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
-
 		<!-- Spring Data JPA -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
-
 		<!-- Actuator -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
-
 		<!-- PostgreSQL driver -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
-
 		<!-- Gmail API -->
 		<dependency>
 			<groupId>com.google.apis</groupId>
@@ -59,7 +50,6 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
 		<!-- Google Auth -->
 		<dependency>
 			<groupId>com.google.auth</groupId>
@@ -72,7 +62,6 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
 		<!-- Google HTTP Client Jackson2 -->
 		<dependency>
 			<groupId>com.google.http-client</groupId>
@@ -85,7 +74,6 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
 		<!-- Google API Client -->
 		<dependency>
 			<groupId>com.google.api-client</groupId>
@@ -98,29 +86,36 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
+		<!-- Google HTTP Client Apache v2 -->
+		<dependency>
+			<groupId>com.google.http-client</groupId>
+			<artifactId>google-http-client-apache-v2</artifactId>
+			<version>1.44.1</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<!-- WebFlux / WebClient -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
-
 		<!-- Lombok -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
 		</dependency>
-
 		<!-- Test -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-
 	</dependencies>
-
 	<build>
 		<plugins>
 			<plugin>
@@ -137,5 +132,4 @@
 			</plugin>
 		</plugins>
 	</build>
-
 </project>
