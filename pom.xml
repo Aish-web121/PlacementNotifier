@@ -4,12 +4,6 @@
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<!--
-        PARENT: Spring Boot's "magic base".
-        This one line gives you auto-configuration,
-        embedded Tomcat server, and sensible defaults.
-        You don't write a server — Spring Boot IS the server.
-    -->
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
@@ -17,7 +11,6 @@
 		<relativePath/>
 	</parent>
 
-	<!-- YOUR project's identity -->
 	<groupId>com.placement</groupId>
 	<artifactId>notifier</artifactId>
 	<version>1.0.0</version>
@@ -29,86 +22,97 @@
 
 	<dependencies>
 
-		<!--  Spring Web: lets you create REST endpoints (/api/health etc.) -->
+		<!-- Spring Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
-		<!--  Spring Data JPA: talk to the database without writing raw SQL -->
+		<!-- Spring Data JPA -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 
-		<!-- Actuator: gives you /actuator/health — Azure uses this to check if app is alive -->
+		<!-- Actuator -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
-		<!-- PostgreSQL driver: lets Java talk to your PostgreSQL database -->
+		<!-- PostgreSQL driver -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- ✅ Gmail API: the official Google library to read your Gmail -->
+		<!-- Gmail API -->
 		<dependency>
 			<groupId>com.google.apis</groupId>
 			<artifactId>google-api-services-gmail</artifactId>
 			<version>v1-rev20220404-2.0.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
-		<!-- ✅ Google Auth: handles OAuth2 login (refresh token flow) -->
+		<!-- Google Auth -->
 		<dependency>
 			<groupId>com.google.auth</groupId>
 			<artifactId>google-auth-library-oauth2-http</artifactId>
 			<version>1.23.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
-		<!--
-            ✅ Google HTTP Client with Jackson:
-            The Gmail library needs this to serialize/deserialize JSON.
-            Without it you get a runtime error.
-        -->
+		<!-- Google HTTP Client Jackson2 -->
 		<dependency>
 			<groupId>com.google.http-client</groupId>
 			<artifactId>google-http-client-jackson2</artifactId>
 			<version>1.44.1</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
-		<!-- Add this alongside your existing Google dependencies -->
+		<!-- Google API Client -->
 		<dependency>
 			<groupId>com.google.api-client</groupId>
 			<artifactId>google-api-client</artifactId>
 			<version>2.4.0</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 
-		<!--
-            ✅ WebFlux / WebClient:
-            A modern HTTP client to call the Telegram API.
-            More reliable than RestTemplate for external API calls.
-        -->
+		<!-- WebFlux / WebClient -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webflux</artifactId>
 		</dependency>
 
-		<!--
-            ✅ Lombok:
-            Kills boilerplate. Instead of writing 50 lines of
-            getters/setters/constructors, you write @Data.
-            It generates the code at compile time.
-        -->
+		<!-- Lombok -->
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
 		</dependency>
 
-		<!-- ✅ Test: JUnit + Spring Boot test utilities -->
+		<!-- Test -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -119,11 +123,6 @@
 
 	<build>
 		<plugins>
-			<!--
-                This plugin packages your entire project into a single
-                "fat JAR" — one file that contains your code + all libraries.
-                You run it with: java -jar notifier-1.0.0.jar
-            -->
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
