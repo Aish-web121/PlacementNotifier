@@ -100,10 +100,23 @@ public class GeminiParserService {
         String bodyLower    = body.toLowerCase().trim();
 
         // 1. Reply emails
-        if (subjectLower.startsWith("re:") || subjectLower.startsWith("re :")) {
-            log.info("PRE-FILTER: Skipping reply email → {}", subject);
-            return true;
-        }
+       // AFTER — only blocks Re: emails with no opportunity signal
+if (subjectLower.startsWith("re:") || subjectLower.startsWith("re :")) {
+    Set<String> opportunityKeywords = Set.of(
+        "round 2", "round 3", "shortlisted", "selected", "next round",
+        "qualified", "congratulations", "result", "interview", "offer",
+        "internship", "placement", "hiring", "opportunity", "opening"
+    );
+    String combined = (subjectLower + " " + body.toLowerCase()).trim();
+    boolean hasOpportunity = opportunityKeywords.stream()
+            .anyMatch(combined::contains);
+
+    if (!hasOpportunity) {
+        log.info("PRE-FILTER: Skipping reply email → {}", subject);
+        return true;
+    }
+    log.info("PRE-FILTER: Re: email has opportunity signal, passing to Gemini → {}", subject);
+}
 
         // 2. Email addressed to a specific named student
         Pattern dearPattern = Pattern.compile(
