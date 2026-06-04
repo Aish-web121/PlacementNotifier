@@ -22,7 +22,7 @@ public class GmailService {
     private final Gmail gmail;
 
     private static final String SEARCH_QUERY =
-            "from:recruitsage newer_than:20d";
+            "from:recruitsage newer_than:1d";
 
     private static final int MAX_RESULTS = 10;
 
