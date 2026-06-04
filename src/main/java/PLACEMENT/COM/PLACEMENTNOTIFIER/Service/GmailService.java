@@ -149,7 +149,7 @@ public class GmailService {
             // body is directly in payload, no parts
             if (payload.getBody() != null
                     && payload.getBody().getData() != null) {
-                return decodeBase64(payload.getBody().getData());
+                return stripQuotedText(decodeBase64(payload.getBody().getData()));
             }
 
             // Case 2: Multipart email
@@ -160,7 +160,7 @@ public class GmailService {
                     if ("text/plain".equals(part.getMimeType())
                             && part.getBody() != null
                             && part.getBody().getData() != null) {
-                        return decodeBase64(part.getBody().getData());
+                        return stripQuotedText(decodeBase64(part.getBody().getData()));
                     }
                 }
 
@@ -169,9 +169,8 @@ public class GmailService {
                     if ("text/html".equals(part.getMimeType())
                             && part.getBody() != null
                             && part.getBody().getData() != null) {
-                        String html = decodeBase64(
-                                part.getBody().getData());
-                        return htmlToText(html);
+                        String html = decodeBase64(part.getBody().getData());
+                        return stripQuotedText(htmlToText(html));
                     }
                 }
 
@@ -185,17 +184,15 @@ public class GmailService {
                             if ("text/plain".equals(nested.getMimeType())
                                     && nested.getBody() != null
                                     && nested.getBody().getData() != null) {
-                                return decodeBase64(
-                                        nested.getBody().getData());
+                                return stripQuotedText(decodeBase64(nested.getBody().getData()));
                             }
                         }
                         for (MessagePart nested : part.getParts()) {
                             if ("text/html".equals(nested.getMimeType())
                                     && nested.getBody() != null
                                     && nested.getBody().getData() != null) {
-                                return htmlToText(
-                                        decodeBase64(
-                                                nested.getBody().getData()));
+                                return stripQuotedText(htmlToText(
+                                        decodeBase64(nested.getBody().getData())));
                             }
                         }
                     }
@@ -208,6 +205,34 @@ public class GmailService {
         }
 
         return "";
+    }
+
+    // ─────────────────────────────────────────────
+    // HELPER: Strip quoted reply content
+    // Removes everything after Gmail quote markers
+    // so old "Dear Professor" etc. don't affect
+    // pre-filter or Gemini analysis
+    // ─────────────────────────────────────────────
+    private String stripQuotedText(String body) {
+        if (body == null || body.isEmpty()) return body;
+
+        String[] quoteMarkers = {
+                "\nOn ",                          // "On Mon, May 18... wrote:"
+                "\r\nOn ",
+                "-----Original Message-----",
+                "________________________________",
+                "\n> ",                           // plain text quote marker
+        };
+
+        int cutAt = body.length();
+        for (String marker : quoteMarkers) {
+            int idx = body.indexOf(marker);
+            if (idx > 100 && idx < cutAt) {      // > 100 to avoid cutting real content
+                cutAt = idx;
+            }
+        }
+
+        return body.substring(0, cutAt).trim();
     }
 
     // ─────────────────────────────────────────────
