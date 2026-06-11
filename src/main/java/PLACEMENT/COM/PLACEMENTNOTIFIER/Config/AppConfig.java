@@ -1,4 +1,4 @@
-package PLACEMENT.COM.PLACEMENTNOTIFIER.Config;  // ← lowercase
+package PLACEMENT.COM.PLACEMENTNOTIFIER.Config;
 
 import com.google.api.client.googleapis.apache.v2.GoogleApacheHttpTransport;
 import com.google.api.client.http.HttpTransport;
@@ -45,10 +45,21 @@ public class AppConfig {
         HttpTransport httpTransport = GoogleApacheHttpTransport.newTrustedTransport();
         JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
 
-        return new Gmail.Builder(httpTransport, jsonFactory,
+        Gmail gmail = new Gmail.Builder(httpTransport, jsonFactory,
                 new HttpCredentialsAdapter(credentials))
                 .setApplicationName(applicationName)
                 .build();
+
+        // ── Diagnostic: log which account this token belongs to ──
+        try {
+            com.google.api.services.gmail.model.Profile profile =
+                    gmail.users().getProfile("me").execute();
+            log.info("✅ Gmail authenticated as: {}", profile.getEmailAddress());
+        } catch (Exception e) {
+            log.error("❌ Could not verify Gmail identity: {}", e.getMessage());
+        }
+
+        return gmail;
     }
 
     @Bean
