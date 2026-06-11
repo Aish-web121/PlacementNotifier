@@ -36,24 +36,6 @@ public class GmailService {
     private static final int MAX_RESULTS = 10;
 
     // ─────────────────────────────────────────────
-    // DIAGNOSTIC: logs which Google account
-    // the OAuth token is actually authenticated as.
-    // Call once at startup from AppConfig or here.
-    // ─────────────────────────────────────────────
-    public void logAuthenticatedAccount() {
-        try {
-            com.google.api.services.gmail.model.Profile profile =
-                    gmailService.users().getProfile("me").execute();
-            log.info("✅ Gmail authenticated as: {} (total messages: {}, threads: {})",
-                    profile.getEmailAddress(),
-                    profile.getMessagesTotal(),
-                    profile.getThreadsTotal());
-        } catch (IOException e) {
-            log.error("❌ Failed to fetch Gmail profile — token may be invalid: {}", e.getMessage());
-        }
-    }
-
-    // ─────────────────────────────────────────────
     // MAIN METHOD: called by scheduler every 3 min
     // Fetches from ALL senders separately
     // Combines results
@@ -65,8 +47,9 @@ public class GmailService {
 
         for (String sender : SENDERS) {
             try {
+                log.info("Fetching emails from: {}", sender);
+
                 String query = "from:" + sender + " newer_than:2d";
-                log.info("Running Gmail query for [{}]: {}", sender, query);
 
                 ListMessagesResponse response = gmailService
                         .users()
@@ -75,12 +58,6 @@ public class GmailService {
                         .setQ(query)
                         .setMaxResults((long) MAX_RESULTS)
                         .execute();
-
-                // ── Diagnostic: log raw response ──
-                log.info("Gmail response for [{}]: messages={}, resultSizeEstimate={}",
-                        sender,
-                        response.getMessages() != null ? response.getMessages().size() : "NULL",
-                        response.getResultSizeEstimate());
 
                 if (response.getMessages() == null
                         || response.getMessages().isEmpty()) {
@@ -109,12 +86,6 @@ public class GmailService {
                         allEmails.add(fullMessage);
                         seenIds.add(msg.getId());
 
-                        // ── Diagnostic: log each fetched message ──
-                        log.info("Fetched message [{}] from [{}] — subject: {}",
-                                msg.getId(),
-                                sender,
-                                getSubject(fullMessage));
-
                     } catch (IOException e) {
                         log.warn("Failed to fetch message {}: {}",
                                 msg.getId(), e.getMessage());
@@ -122,12 +93,14 @@ public class GmailService {
                 }
 
             } catch (IOException e) {
+                // one sender failing doesn't stop others
                 log.error("Failed to fetch from {}: {}",
                         sender, e.getMessage());
             }
         }
 
-        log.info("Total placement emails fetched: {}", allEmails.size());
+        log.info("Total placement emails fetched: {}",
+                allEmails.size());
         return allEmails;
     }
 
@@ -227,7 +200,8 @@ public class GmailService {
             }
 
         } catch (Exception e) {
-            log.warn("Could not extract email body: {}", e.getMessage());
+            log.warn("Could not extract email body: {}",
+                    e.getMessage());
         }
 
         return "";
